@@ -1844,6 +1844,28 @@ export function useLivelineEngine(
       }
     }
 
+    // --- Live value display (DOM, updated by ref) ---
+    // Shows the primary value (last price) tinted by the last price's momentum,
+    // computed from cfg.data (the primary series) rather than any overlay.
+    const multiValEl = cfg.valueDisplayRef?.current
+    if (multiValEl) {
+      let lastMomentum: Momentum = 'flat'
+      if (cfg.valueMomentumColor && cfg.data.length >= 2) {
+        const lastVis: LivelinePoint[] = []
+        for (const p of cfg.data) {
+          if (p.time >= leftEdge - 2 && p.time <= rightEdge) lastVis.push(p)
+        }
+        if (lastVis.length >= 2) lastMomentum = cfg.momentumOverride ?? detectMomentum(lastVis)
+      }
+      const displayVal = cfg.valueMomentumColor ? Math.abs(cfg.value) : cfg.value
+      multiValEl.textContent = cfg.formatValue(displayVal)
+      if (cfg.valueMomentumColor) {
+        const mc = lastMomentum === 'up' ? '#22c55e' : lastMomentum === 'down' ? '#ef4444' : ''
+        if (mc) multiValEl.style.color = mc
+        else multiValEl.style.removeProperty('color')
+      }
+    }
+
     // Hide badge in multi-series mode
     if (badgeRef.current) badgeRef.current.container.style.display = 'none'
 
