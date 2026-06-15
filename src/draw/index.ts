@@ -241,6 +241,7 @@ export interface MultiSeriesEntry {
   palette: LivelinePalette
   label?: string
   alpha?: number  // series visibility alpha (0 = hidden, 1 = visible)
+  fill?: boolean  // draw the area fill under this series
 }
 
 export interface MultiSeriesDrawOptions {
@@ -332,7 +333,7 @@ export function drawMultiFrame(
     if (combinedAlpha < 1) ctx.globalAlpha = combinedAlpha
     const pts = drawLine(
       ctx, layout, s.palette, s.visible, s.smoothValue, opts.now,
-      false, // no fill
+      s.fill ?? false,
       scrubX, opts.scrubAmount,
       reveal, opts.now_ms,
     )

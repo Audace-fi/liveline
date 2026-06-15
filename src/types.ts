@@ -52,6 +52,7 @@ export interface LivelineSeries {
   value: number
   color: string
   label?: string
+  fill?: boolean  // draw the area fill under this series (e.g. the primary line)
 }
 
 export interface LivelineProps {

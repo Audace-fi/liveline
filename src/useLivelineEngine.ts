@@ -62,6 +62,7 @@ interface EngineConfig {
     value: number
     palette: LivelinePalette
     label?: string
+    fill?: boolean
   }>
   isMultiSeries?: boolean
   hiddenSeriesIds?: Set<string>
@@ -1713,7 +1714,7 @@ export function useLivelineEngine(
           if (range.max > globalMax) globalMax = range.max
         }
         // Always push to entries (drawMultiFrame skips via alpha)
-        seriesEntries.push({ visible, smoothValue: sv, palette: s.palette, label: s.label, alpha })
+        seriesEntries.push({ visible, smoothValue: sv, palette: s.palette, label: s.label, alpha, fill: s.fill })
       }
     }
 

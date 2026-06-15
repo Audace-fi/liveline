@@ -100,6 +100,7 @@ export function Liveline({
       value: s.value,
       palette: seriesPalettes.get(s.id) ?? resolveTheme(s.color || SERIES_COLORS[i % SERIES_COLORS.length], theme),
       label: s.label,
+      fill: s.fill,
     }))
   }, [seriesProp, seriesPalettes, theme])
 
