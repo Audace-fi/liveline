@@ -1,11 +1,11 @@
 import { useRef, useEffect, useCallback } from 'react'
-import type { LivelinePoint, LivelinePalette, LivelineSeries, Momentum, ReferenceLine, HoverPoint, Padding, ChartLayout, OrderbookData, DegenOptions, BadgeVariant, CandlePoint, TradeMarker } from './types'
+import type { LivelinePoint, LivelinePalette, LivelineSeries, Momentum, ReferenceLine, HoverPoint, Padding, ChartLayout, OrderbookData, DegenOptions, BadgeVariant, CandlePoint } from './types'
 import { lerp } from './math/lerp'
 import { computeRange } from './math/range'
 import { detectMomentum } from './math/momentum'
 import { interpolateAtTime } from './math/interpolate'
 import { getDpr, applyDpr } from './canvas/dpr'
-import { drawFrame, drawCandleFrame, drawMultiFrame, FADE_EDGE_WIDTH, drawTradeMarkers } from './draw'
+import { drawFrame, drawCandleFrame, drawMultiFrame, FADE_EDGE_WIDTH } from './draw'
 import type { MultiSeriesEntry } from './draw'
 import { drawLoading } from './draw/loading'
 import { drawEmpty } from './draw/empty'
@@ -41,7 +41,6 @@ interface EngineConfig {
   valueMomentumColor: boolean
   valueDisplayRef?: React.RefObject<HTMLSpanElement | null>
   orderbookData?: OrderbookData
-  trades?: TradeMarker[]
   loading?: boolean
   paused?: boolean
   emptyText?: string
@@ -1541,7 +1540,6 @@ export function useLivelineEngine(
         // allowing smooth fade-out during empty→live (loadingAlpha is 0).
         showEmptyOverlay: !(cfg.loading ?? false) && loadingAlpha < 0.01,
       })
-      if (cfg.trades && cfg.trades.length) drawTradeMarkers(ctx, layout, cfg.trades, chartReveal)
 
       // Badge in candle mode — only when in line mode (lineModeProg > 0.5)
       if (badgeRef.current) {
@@ -1839,7 +1837,6 @@ export function useLivelineEngine(
       orderbookData: cfg.orderbookData,
       orderbookState: cfg.orderbookData ? orderbookStateRef.current : undefined,
     })
-    if (cfg.trades && cfg.trades.length) drawTradeMarkers(ctx, layout, cfg.trades, chartReveal)
 
     // During reverse morph (chart → loading/empty), overlay the empty text
     // as chartReveal drops — identical to single-series behavior
@@ -2027,7 +2024,6 @@ export function useLivelineEngine(
       pauseProgress,
       now_ms,
     })
-    if (cfg.trades && cfg.trades.length) drawTradeMarkers(ctx, layout, cfg.trades, chartReveal)
 
     // During morph (chart ↔ empty), overlay the gradient gap + text on
     // top of the morphing chart line. skipLine=true avoids double-drawing

@@ -10,7 +10,6 @@ import { drawOrderbook, type OrderbookState } from './orderbook'
 import { drawParticles, spawnOnSwing, type ParticleState } from './particles'
 import { drawCandlesticks, drawClosePrice, drawCandleCrosshair, drawLineModeCrosshair } from './candlestick'
 import { drawEmpty } from './empty'
-export { drawTradeMarkers } from './tradeMarkers'
 
 // Constants
 const SHAKE_DECAY_RATE = 0.002
