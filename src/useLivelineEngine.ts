@@ -44,6 +44,7 @@ interface EngineConfig {
   loading?: boolean
   paused?: boolean
   emptyText?: string
+  panZoom?: boolean // enable scroll-wheel zoom + drag-pan (default off)
 
   // Candlestick mode
   mode: 'line' | 'candle'
@@ -112,6 +113,11 @@ const RANGE_LERP_SPEED = 0.15
 const RANGE_ADAPTIVE_BOOST = 0.2
 const CANDLE_BUFFER = 0.05
 const CANDLE_BUFFER_NO_BADGE = 0.015
+
+// Pan/zoom interaction (opt-in via config.panZoom)
+const MIN_ZOOM = 0.04          // most zoomed-IN: window shrinks to 4% of the base span
+const MAX_ZOOM = 1             // most zoomed-OUT: the base window (no over-scroll past full data)
+const ZOOM_WHEEL_SENS = 0.0015 // wheel deltaY → zoom-factor exponent
 
 // --- Extracted helper functions (pure computation, called inside draw loop) ---
 
@@ -610,6 +616,12 @@ export function useLivelineEngine(
   const pauseProgressRef = useRef(0) // 0 = playing, 1 = fully paused
   const timeDebtRef = useRef(0) // accumulated seconds behind real time
 
+  // Pan/zoom interaction state (active only when config.panZoom)
+  const zoomRef = useRef(1) // window multiplier: 1 = base window, <1 = zoomed in
+  const panAnchorRef = useRef<number | null>(null) // null = follow live; else absolute-time right edge
+  const draggingRef = useRef(false)
+  const dragLastXRef = useRef(0)
+
   // Data stash for reverse morph (chart → flat line when data disappears)
   const lastDataRef = useRef<LivelinePoint[]>([])
   const lastMultiSeriesRef = useRef<Array<{ id: string; data: LivelinePoint[]; value: number; palette: LivelinePalette; label?: string }>>([])
@@ -647,6 +659,9 @@ export function useLivelineEngine(
     oldWidth: config.candleWidth ?? 1,
   })
   const prevCandleDataRef = useRef({ candles: [] as CandlePoint[], width: config.candleWidth ?? 1 })
+  // When `candleWidth` isn't given, infer the candle spacing (seconds) from the
+  // data so candle bodies render at the right width AND hover hit-testing works.
+  const inferredCandleWidthRef = useRef(config.candleWidth ?? 1)
   const pausedCandlesRef = useRef<CandlePoint[] | null>(null)
   const pausedLiveRef = useRef<CandlePoint | null>(null)
   const pausedLineDataRef = useRef<LivelinePoint[] | null>(null)
@@ -711,6 +726,7 @@ export function useLivelineEngine(
     if (!container) return
 
     const onMove = (e: MouseEvent) => {
+      if (draggingRef.current) return // panning — don't also scrub
       if (!configRef.current.scrub) return
       const rect = container.getBoundingClientRect()
       hoverXRef.current = e.clientX - rect.left
@@ -738,8 +754,61 @@ export function useLivelineEngine(
       configRef.current.onHover?.(null)
     }
 
+    // Scroll-wheel zoom (opt-in). deltaY<0 (scroll up) zooms in, deltaY>0 zooms out.
+    const onWheel = (e: WheelEvent) => {
+      if (!configRef.current.panZoom) return
+      e.preventDefault() // we own the scroll gesture over the chart
+      const factor = Math.exp(e.deltaY * ZOOM_WHEEL_SENS)
+      zoomRef.current = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomRef.current * factor))
+    }
+
+    // Drag-to-pan (opt-in). The right edge is anchored to an absolute time while
+    // panned; when the drag catches back up to the live edge we resume following it.
+    const liveRightNow = () => {
+      const ws = displayWindowRef.current * zoomRef.current
+      const buffer = configRef.current.showBadge ? WINDOW_BUFFER : WINDOW_BUFFER_NO_BADGE
+      return Date.now() / 1000 - timeDebtRef.current + ws * buffer
+    }
+    const secsPerPxNow = () => {
+      const pad = configRef.current.padding
+      const chartW = Math.max(1, sizeRef.current.w - pad.left - pad.right)
+      return (displayWindowRef.current * zoomRef.current) / chartW
+    }
+    const onMouseDown = (e: MouseEvent) => {
+      if (!configRef.current.panZoom || e.button !== 0) return
+      draggingRef.current = true
+      dragLastXRef.current = e.clientX
+      hoverXRef.current = null // hide the scrub crosshair while panning
+      if (panAnchorRef.current == null) panAnchorRef.current = liveRightNow()
+      document.body.style.userSelect = 'none'
+    }
+    const onDragMove = (e: MouseEvent) => {
+      if (!draggingRef.current || panAnchorRef.current == null) return
+      const dx = e.clientX - dragLastXRef.current
+      dragLastXRef.current = e.clientX
+      const anchor = panAnchorRef.current - dx * secsPerPxNow() // drag right → back in time
+      // Caught back up to (or past) the live edge → resume following live.
+      panAnchorRef.current = anchor >= liveRightNow() ? null : anchor
+    }
+    const onDragEnd = () => {
+      if (!draggingRef.current) return
+      draggingRef.current = false
+      document.body.style.userSelect = ''
+    }
+    // Double-click resets zoom and resumes following the live edge.
+    const onDblClick = () => {
+      if (!configRef.current.panZoom) return
+      zoomRef.current = 1
+      panAnchorRef.current = null
+    }
+
     container.addEventListener('mousemove', onMove)
     container.addEventListener('mouseleave', onLeave)
+    container.addEventListener('wheel', onWheel, { passive: false })
+    container.addEventListener('mousedown', onMouseDown)
+    container.addEventListener('dblclick', onDblClick)
+    window.addEventListener('mousemove', onDragMove)
+    window.addEventListener('mouseup', onDragEnd)
     container.addEventListener('touchstart', onTouchStart, { passive: true })
     container.addEventListener('touchmove', onTouchMove, { passive: false })
     container.addEventListener('touchend', onTouchEnd)
@@ -747,12 +816,37 @@ export function useLivelineEngine(
     return () => {
       container.removeEventListener('mousemove', onMove)
       container.removeEventListener('mouseleave', onLeave)
+      container.removeEventListener('wheel', onWheel)
+      container.removeEventListener('mousedown', onMouseDown)
+      container.removeEventListener('dblclick', onDblClick)
+      window.removeEventListener('mousemove', onDragMove)
+      window.removeEventListener('mouseup', onDragEnd)
       container.removeEventListener('touchstart', onTouchStart)
       container.removeEventListener('touchmove', onTouchMove)
       container.removeEventListener('touchend', onTouchEnd)
       container.removeEventListener('touchcancel', onTouchEnd)
+      document.body.style.userSelect = ''
     }
   }, [containerRef])
+
+  // Infer candle spacing (seconds) from the data when `candleWidth` isn't given.
+  // Median of consecutive deltas — robust to gaps (weekends, missing bars).
+  useEffect(() => {
+    if (config.candleWidth != null) {
+      inferredCandleWidthRef.current = config.candleWidth
+      return
+    }
+    const cs = config.candles
+    if (!cs || cs.length < 2) return
+    const deltas: number[] = []
+    for (let i = 1; i < cs.length; i++) {
+      const d = cs[i].time - cs[i - 1].time
+      if (d > 0) deltas.push(d)
+    }
+    if (deltas.length === 0) return
+    deltas.sort((a, b) => a - b)
+    inferredCandleWidthRef.current = deltas[Math.floor(deltas.length / 2)]
+  }, [config.candles, config.candleWidth])
 
   // Reduced motion detection
   useEffect(() => {
@@ -1011,7 +1105,7 @@ export function useLivelineEngine(
         effectiveLineData = lastLineDataStashRef.current
         effectiveLineValue = lastLineValueStashRef.current
       }
-      const candleWidthSecs = cfg.candleWidth ?? 1
+      const candleWidthSecs = cfg.candleWidth ?? inferredCandleWidthRef.current
 
       // --- Candle width morph transition ---
       const cwt = candleWidthTransRef.current
@@ -1087,11 +1181,12 @@ export function useLivelineEngine(
         now_ms, now, effectiveCandles, rawLive, candleWidthSecs, candleBuffer,
       )
       displayWindowRef.current = windowResult.windowSecs
-      const windowSecs = windowResult.windowSecs
+      const windowSecs = windowResult.windowSecs * zoomRef.current
       const windowTransProgress = windowResult.windowTransProgress
       const isWindowTransitioning = transition.startMs > 0
 
-      const rightEdge = now + windowSecs * candleBuffer
+      const liveRight = now + windowSecs * candleBuffer
+      const rightEdge = panAnchorRef.current ?? liveRight
       const leftEdge = rightEdge - windowSecs
 
       // --- Live candle OHLC lerp ---
@@ -1546,11 +1641,12 @@ export function useLivelineEngine(
       }
     }
     displayWindowRef.current = windowResult.windowSecs
-    const windowSecs = windowResult.windowSecs
+    const windowSecs = windowResult.windowSecs * zoomRef.current
     const windowTransProgress = windowResult.windowTransProgress
     const isWindowTransitioning = transition.startMs > 0
 
-    const rightEdge = now + windowSecs * buffer
+    const liveRight = now + windowSecs * buffer
+    const rightEdge = panAnchorRef.current ?? liveRight
     const leftEdge = rightEdge - windowSecs
     const filterRight = rightEdge - (rightEdge - now) * pauseProgress
 
@@ -1760,10 +1856,11 @@ export function useLivelineEngine(
       noMotion, now_ms, now, effectivePoints, smoothValue, buffer,
     )
     displayWindowRef.current = windowResult.windowSecs
-    const windowSecs = windowResult.windowSecs
+    const windowSecs = windowResult.windowSecs * zoomRef.current
     const windowTransProgress = windowResult.windowTransProgress
 
-    const rightEdge = now + windowSecs * buffer
+    const liveRight = now + windowSecs * buffer
+    const rightEdge = panAnchorRef.current ?? liveRight
     const leftEdge = rightEdge - windowSecs
 
     // Filter visible points — when pausing, contract right edge to `now`
