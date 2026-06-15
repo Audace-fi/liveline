@@ -119,21 +119,27 @@ export function drawLine(
       }
     : (rawY: number, _x: number) => rawY
 
+  // When panned into history the live edge (now) sits past the right edge — the
+  // last visible point is then just historical data, so don't swap in the live
+  // value or append a live tip (either would spike the line up to the live price).
+  const liveVisible = now <= layout.rightEdge
   const pts: [number, number][] = visible.map((p, i) => {
     const x = toX(p.time)
-    const y = i === visible.length - 1
+    const y = (liveVisible && i === visible.length - 1)
       ? morphY(clampY(toY(smoothValue)), x)
       : morphY(clampY(toY(p.value)), x)
     return [x, y]
   })
-  // Tip X: at reveal=0 extends to full chart width (matching loading/empty line),
-  // at reveal=1 sits at the live dot position. Smooth morph between.
-  const liveTipX = toX(now)
-  const fullRightX = pad.left + chartW
-  const tipX = chartReveal < 1
-    ? liveTipX + (fullRightX - liveTipX) * (1 - chartReveal)
-    : liveTipX
-  pts.push([tipX, morphY(clampY(toY(smoothValue)), tipX)])
+  if (liveVisible) {
+    // Tip X: at reveal=0 extends to full chart width (matching loading/empty line),
+    // at reveal=1 sits at the live dot position. Smooth morph between.
+    const liveTipX = toX(now)
+    const fullRightX = pad.left + chartW
+    const tipX = chartReveal < 1
+      ? liveTipX + (fullRightX - liveTipX) * (1 - chartReveal)
+      : liveTipX
+    pts.push([tipX, morphY(clampY(toY(smoothValue)), tipX)])
+  }
 
   if (pts.length < 2) return
 

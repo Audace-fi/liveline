@@ -142,6 +142,9 @@ export function drawFrame(
 
   if (pts && pts.length > 0) {
     const lastPt = pts[pts.length - 1]
+    // When panned into history, the live edge is off-screen — drawLine no longer
+    // appends a tip, so suppress the live dot/arrows/particles too.
+    const liveVisible = opts.now <= layout.rightEdge
 
     // 5. Dot — dims during scrub, fades in with reveal (0.3 → 1.0)
     let dotScrub = opts.scrubAmount
@@ -156,7 +159,7 @@ export function drawFrame(
     // Dot appears once shape is recognizable (reveal > 0.3)
     const dotAlpha = reveal < 0.3 ? 0 : (reveal - 0.3) / 0.7
     const showPulse = opts.showPulse && reveal > 0.6 && pause < 0.5
-    if (dotAlpha > 0.01) {
+    if (dotAlpha > 0.01 && liveVisible) {
       ctx.save()
       if (dotAlpha < 1) ctx.globalAlpha = dotAlpha
       drawDot(ctx, lastPt[0], lastPt[1], palette, showPulse, dotScrub, opts.now_ms)
@@ -164,7 +167,7 @@ export function drawFrame(
     }
 
     // 5b. Arrows — appear late in reveal (60%+), fade with pause
-    if (opts.showMomentum) {
+    if (opts.showMomentum && liveVisible) {
       const arrowReveal = reveal < 1 ? revealRamp(0.6, 1) : 1
       const arrowAlpha = arrowReveal * (1 - pause)
       if (arrowAlpha > 0.01) {
@@ -179,7 +182,7 @@ export function drawFrame(
     }
 
     // 6. Particles — only when fully revealed
-    if (opts.particleState && reveal > 0.9) {
+    if (opts.particleState && reveal > 0.9 && liveVisible) {
       const burstIntensity = spawnOnSwing(
         opts.particleState, opts.momentum, lastPt[0], lastPt[1],
         opts.swingMagnitude, palette.line, opts.dt, opts.particleOptions,
@@ -264,6 +267,9 @@ export interface MultiSeriesDrawOptions {
   now_ms: number
   /** Primary palette (from first series) for grid/axis/crosshair colors */
   primaryPalette: LivelinePalette
+  orderbookData?: OrderbookData
+  orderbookState?: OrderbookState
+  swingMagnitude?: number
 }
 
 /**
@@ -300,6 +306,14 @@ export function drawMultiFrame(
       drawGrid(ctx, layout, palette, opts.formatValue, opts.gridState, opts.dt)
       ctx.restore()
     }
+  }
+
+  // 2b. Orderbook (behind the lines) — fades with reveal
+  if (opts.orderbookData && opts.orderbookState && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    drawOrderbook(ctx, layout, palette, opts.orderbookData, opts.dt, opts.orderbookState, opts.swingMagnitude ?? 0)
+    ctx.restore()
   }
 
   // 3. Draw each series line (back to front, no fill, with scrub dimming)
@@ -345,6 +359,9 @@ export function drawMultiFrame(
   if (reveal > 0.3 && allPts.length > 0) {
     const dotAlpha = (reveal - 0.3) / 0.7
     const showPulse = opts.showPulse && reveal > 0.6 && opts.pauseProgress < 0.5
+    // When panned into history the live edge is off-screen — suppress the live
+    // endpoint dots (drawLine no longer appends a tip), but keep the labels.
+    const liveVisible = opts.now <= layout.rightEdge
 
     for (const entry of allPts) {
       if (entry.alpha < 0.01) continue
@@ -354,9 +371,9 @@ export function drawMultiFrame(
       ctx.globalAlpha = dotAlpha * entry.alpha
 
       // Use pulsing dot when enabled and series is mostly visible
-      if (showPulse && entry.alpha > 0.5) {
+      if (liveVisible && showPulse && entry.alpha > 0.5) {
         drawMultiDot(ctx, lastPt[0], lastPt[1], entry.palette.line, true, opts.now_ms, 3)
-      } else {
+      } else if (liveVisible) {
         drawSimpleDot(ctx, lastPt[0], lastPt[1], entry.palette.line, 3)
       }
 
@@ -438,6 +455,9 @@ export interface CandleDrawOptions {
   arrowState: { up: number; down: number }
   referenceLine?: ReferenceLine
   overlays?: Array<{ visible: LivelinePoint[]; palette: LivelinePalette; smoothValue: number }>
+  orderbookData?: OrderbookData
+  orderbookState?: OrderbookState
+  swingMagnitude?: number
   scrubAmount: number
   hoverX: number | null
   hoverValue: number | null
@@ -509,6 +529,14 @@ export function drawCandleFrame(
     ctx.save()
     if (gridAlpha < 1) ctx.globalAlpha = gridAlpha
     drawGrid(ctx, layout, palette, opts.formatValue, opts.gridState, opts.dt)
+    ctx.restore()
+  }
+
+  // 1b. Orderbook (behind candles) — fades with reveal
+  if (opts.orderbookData && opts.orderbookState && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    drawOrderbook(ctx, layout, palette, opts.orderbookData, opts.dt, opts.orderbookState, opts.swingMagnitude ?? 0)
     ctx.restore()
   }
 
@@ -632,7 +660,7 @@ export function drawCandleFrame(
   }
 
   // 5. Live dot — position from drawLine's returned pts (same as drawFrame).
-  if (lp > 0.5 && linePts && linePts.length > 0 && reveal > 0.3) {
+  if (lp > 0.5 && linePts && linePts.length > 0 && reveal > 0.3 && opts.now <= layout.rightEdge) {
     const lastPt = linePts[linePts.length - 1]
     const dotAlpha = ((lp - 0.5) * 2) * ((reveal - 0.3) / 0.7)
     const showPulse = lp > 0.8 && reveal > 0.6
@@ -647,7 +675,7 @@ export function drawCandleFrame(
   // 5c. Candle-mode live beacon — pulse dot + momentum arrows at the live close.
   //     Present in candle mode, cross-fading out as line mode (its own dot) takes over.
   const beaconFade = (1 - lp) * (reveal < 0.3 ? 0 : (reveal - 0.3) / 0.7)
-  if (beaconFade > 0.01) {
+  if (beaconFade > 0.01 && opts.now <= layout.rightEdge) {
     const liveX = layout.toX(opts.now)
     const liveY = layout.toY(opts.lineSmoothValue)
     const beaconPulse = opts.showPulse && reveal > 0.6 && opts.pauseProgress < 0.5

@@ -1515,6 +1515,8 @@ export function useLivelineEngine(
         arrowState: arrowStateRef.current,
         referenceLine: cfg.referenceLine,
         overlays: visibleOverlays,
+        orderbookData: cfg.orderbookData,
+        orderbookState: cfg.orderbookData ? orderbookStateRef.current : undefined,
         scrubAmount,
         hoverX: drawHoverX,
         hoverValue: drawHoverCandle?.close ?? null,
@@ -1832,6 +1834,8 @@ export function useLivelineEngine(
       pauseProgress,
       now_ms,
       primaryPalette: cfg.palette,
+      orderbookData: cfg.orderbookData,
+      orderbookState: cfg.orderbookData ? orderbookStateRef.current : undefined,
     })
 
     // During reverse morph (chart → loading/empty), overlay the empty text
