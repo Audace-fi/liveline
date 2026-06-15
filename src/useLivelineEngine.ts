@@ -1309,6 +1309,25 @@ export function useLivelineEngine(
         ? computeCandleRange(effectiveVisible)
         : { min: displayMinRef.current, max: displayMaxRef.current }
 
+      // Overlay series (index + indicators) drawn as lines over the candles.
+      // Build their visible slices and fold into the range so they fit the Y axis.
+      const visibleOverlays: Array<{ visible: LivelinePoint[]; palette: LivelinePalette; smoothValue: number }> = []
+      if (cfg.multiSeries && cfg.multiSeries.length > 0) {
+        for (const s of cfg.multiSeries) {
+          if (cfg.hiddenSeriesIds?.has(s.id)) continue
+          const vis: LivelinePoint[] = []
+          for (const p of s.data) {
+            if (p.time >= leftEdge - 2 && p.time <= rightEdge) vis.push(p)
+          }
+          if (vis.length < 2) continue
+          for (const p of vis) {
+            if (p.value < computed.min) computed.min = p.value
+            if (p.value > computed.max) computed.max = p.value
+          }
+          visibleOverlays.push({ visible: vis, palette: s.palette, smoothValue: s.value })
+        }
+      }
+
       const rangeResult = updateCandleRange(
         computed, rangeInitedRef.current,
         displayMinRef.current, displayMaxRef.current,
@@ -1495,6 +1514,7 @@ export function useLivelineEngine(
         momentum: candleMomentum,
         arrowState: arrowStateRef.current,
         referenceLine: cfg.referenceLine,
+        overlays: visibleOverlays,
         scrubAmount,
         hoverX: drawHoverX,
         hoverValue: drawHoverCandle?.close ?? null,

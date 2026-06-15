@@ -437,6 +437,7 @@ export interface CandleDrawOptions {
   momentum: Momentum
   arrowState: { up: number; down: number }
   referenceLine?: ReferenceLine
+  overlays?: Array<{ visible: LivelinePoint[]; palette: LivelinePalette; smoothValue: number }>
   scrubAmount: number
   hoverX: number | null
   hoverValue: number | null
@@ -610,6 +611,22 @@ export function drawCandleFrame(
         opts.liveBirthAlpha, opts.liveBullBlend,
         accentCol, lp,
       )
+    }
+    ctx.restore()
+  }
+
+  // 4b. Overlay series (index + indicators) — lines over the candles, clipped
+  //     to the plot, no fill/dash/dot. Each draws in its own series colour.
+  if (opts.overlays && opts.overlays.length > 0 && reveal > 0.01) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(pad.left - 1, pad.top, chartW + 2, chartH)
+    ctx.clip()
+    for (const ov of opts.overlays) {
+      if (ov.visible.length < 2) continue
+      ctx.globalAlpha = reveal
+      drawLine(ctx, layout, ov.palette, ov.visible, ov.smoothValue, opts.now, false, null, 0, reveal, opts.now_ms, 1, true)
+      ctx.globalAlpha = 1
     }
     ctx.restore()
   }
