@@ -1470,6 +1470,7 @@ export function useLivelineEngine(
       }
 
       // --- Draw ---
+      const candleMomentum: Momentum = cfg.momentumOverride ?? detectMomentum(lineVisible)
       drawCandleFrame(ctx, layout, cfg.palette, {
         candles: drawCandles,
         displayCandleWidth,
@@ -1489,6 +1490,11 @@ export function useLivelineEngine(
         now,
         pauseProgress,
         showGrid: cfg.showGrid,
+        showMomentum: cfg.showMomentum,
+        showPulse: cfg.showPulse,
+        momentum: candleMomentum,
+        arrowState: arrowStateRef.current,
+        referenceLine: cfg.referenceLine,
         scrubAmount,
         hoverX: drawHoverX,
         hoverValue: drawHoverCandle?.close ?? null,
@@ -1534,6 +1540,18 @@ export function useLivelineEngine(
           }
         } else {
           badgeRef.current.container.style.display = 'none'
+        }
+      }
+
+      // --- Live value display (DOM element, updated by ref — no React re-renders) ---
+      const candleValEl = cfg.valueDisplayRef?.current
+      if (candleValEl) {
+        const displayVal = cfg.valueMomentumColor ? Math.abs(lineSmoothValue) : lineSmoothValue
+        candleValEl.textContent = cfg.formatValue(displayVal)
+        if (cfg.valueMomentumColor) {
+          const mc = candleMomentum === 'up' ? '#22c55e' : candleMomentum === 'down' ? '#ef4444' : ''
+          if (mc) candleValEl.style.color = mc
+          else candleValEl.style.removeProperty('color')
         }
       }
 

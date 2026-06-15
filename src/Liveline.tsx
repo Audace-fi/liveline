@@ -190,7 +190,9 @@ export function Liveline({
     lerpSpeed,
     showGrid: grid,
     showBadge: isMultiSeries ? false : badge,
-    showMomentum: isMultiSeries ? false : showMomentum,
+    // Candle mode treats `series` as overlays (candles are primary), so keep
+    // momentum on even when series are present.
+    showMomentum: (isMultiSeries && mode !== 'candle') ? false : showMomentum,
     momentumOverride,
     showFill: isMultiSeries ? false : fill,
     referenceLine,

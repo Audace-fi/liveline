@@ -432,6 +432,11 @@ export interface CandleDrawOptions {
   now: number
   pauseProgress: number
   showGrid: boolean
+  showMomentum: boolean
+  showPulse: boolean
+  momentum: Momentum
+  arrowState: { up: number; down: number }
+  referenceLine?: ReferenceLine
   scrubAmount: number
   hoverX: number | null
   hoverValue: number | null
@@ -487,6 +492,14 @@ export function drawCandleFrame(
   const revealRamp = (start: number, end: number) => {
     const t = Math.max(0, Math.min(1, (reveal - start) / (end - start)))
     return t * t * (3 - 2 * t)
+  }
+
+  // 0. Reference line (behind everything) — fades with reveal
+  if (opts.referenceLine && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    drawReferenceLine(ctx, layout, palette, opts.referenceLine)
+    ctx.restore()
   }
 
   // 1. Grid — fades in (25%–60% of reveal)
@@ -610,6 +623,25 @@ export function drawCandleFrame(
       ctx.save()
       ctx.globalAlpha = dotAlpha
       drawDot(ctx, lastPt[0], lastPt[1], palette, showPulse, opts.scrubAmount, opts.now_ms)
+      ctx.restore()
+    }
+  }
+
+  // 5c. Candle-mode live beacon — pulse dot + momentum arrows at the live close.
+  //     Present in candle mode, cross-fading out as line mode (its own dot) takes over.
+  const beaconFade = (1 - lp) * (reveal < 0.3 ? 0 : (reveal - 0.3) / 0.7)
+  if (beaconFade > 0.01) {
+    const liveX = layout.toX(opts.now)
+    const liveY = layout.toY(opts.lineSmoothValue)
+    const beaconPulse = opts.showPulse && reveal > 0.6 && opts.pauseProgress < 0.5
+    ctx.save()
+    ctx.globalAlpha = beaconFade
+    drawDot(ctx, liveX, liveY, palette, beaconPulse, opts.scrubAmount, opts.now_ms)
+    ctx.restore()
+    if (opts.showMomentum) {
+      ctx.save()
+      ctx.globalAlpha = beaconFade
+      drawArrows(ctx, liveX, liveY, opts.momentum, palette, opts.arrowState, opts.dt, opts.now_ms)
       ctx.restore()
     }
   }
