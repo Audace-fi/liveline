@@ -13,6 +13,7 @@ export type {
   Padding,
   WindowOption,
   OrderbookData,
+  TradeMarker,
   DegenOptions,
   WindowStyle,
   BadgeVariant,

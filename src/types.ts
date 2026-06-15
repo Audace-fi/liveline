@@ -39,6 +39,13 @@ export interface OrderbookData {
   asks: [number, number][]  // [price, size][]
 }
 
+export interface TradeMarker {
+  time: number   // unix seconds
+  price: number
+  size: number   // qty/notional — used for relative marker sizing
+  side: 'buy' | 'sell'
+}
+
 export interface DegenOptions {
   /** Multiplier for particle count and size (default 1) */
   scale?: number
@@ -97,6 +104,9 @@ export interface LivelineProps {
 
   // Orderbook
   orderbook?: OrderbookData
+
+  // Trade markers (e.g. whale prints) — drawn at (time, price), sized by `size`
+  trades?: TradeMarker[]
 
   // Optional
   referenceLine?: ReferenceLine
