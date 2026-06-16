@@ -364,27 +364,38 @@ export function drawMultiFrame(
     // endpoint dots (drawLine no longer appends a tip), but keep the labels.
     const liveVisible = opts.now <= layout.rightEdge
 
+    // Endpoint dots for every visible series.
     for (const entry of allPts) {
       if (entry.alpha < 0.01) continue
       const lastPt = entry.pts[entry.pts.length - 1]
-
       ctx.save()
       ctx.globalAlpha = dotAlpha * entry.alpha
-
-      // Use pulsing dot when enabled and series is mostly visible
       if (liveVisible && showPulse && entry.alpha > 0.5) {
         drawMultiDot(ctx, lastPt[0], lastPt[1], entry.palette.line, true, opts.now_ms, 3)
       } else if (liveVisible) {
         drawSimpleDot(ctx, lastPt[0], lastPt[1], entry.palette.line, 3)
       }
+      ctx.restore()
+    }
 
-      // Label at endpoint (right of dot — layout reserves space via labelReserve)
-      if (entry.label) {
-        ctx.font = '600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
-        ctx.textAlign = 'left'
-        ctx.fillStyle = entry.palette.line
-        ctx.fillText(entry.label, lastPt[0] + 6, lastPt[1] + 3.5)
-      }
+    // Endpoint labels — skip any that would overlap one already drawn. Iterate
+    // last→first so the topmost (primary) series wins: when the lines converge
+    // you get a single label instead of a pile-up, but you keep all of them
+    // when the lines actually diverge.
+    ctx.font = '600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
+    ctx.textAlign = 'left'
+    const drawnLabelYs: number[] = []
+    for (let i = allPts.length - 1; i >= 0; i--) {
+      const entry = allPts[i]
+      if (entry.alpha < 0.01 || !entry.label) continue
+      const lastPt = entry.pts[entry.pts.length - 1]
+      const y = lastPt[1]
+      if (drawnLabelYs.some((dy) => Math.abs(dy - y) < 12)) continue
+      drawnLabelYs.push(y)
+      ctx.save()
+      ctx.globalAlpha = dotAlpha * entry.alpha
+      ctx.fillStyle = entry.palette.line
+      ctx.fillText(entry.label, lastPt[0] + 6, y + 3.5)
       ctx.restore()
     }
   }
