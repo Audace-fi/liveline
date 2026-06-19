@@ -236,7 +236,10 @@ export function Liveline({
   const inactiveColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.22)'
 
   return (
-    <>
+    <div
+      className={className}
+      style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', ...style }}
+    >
       {/* Live value display — above the chart */}
       {showValue && (
         <span
@@ -475,12 +478,11 @@ export function Liveline({
 
       <div
         ref={containerRef}
-        className={className}
         style={{
+          flex: 1,
+          minHeight: 0,
           width: '100%',
-          height: '100%',
           position: 'relative',
-          ...style,
         }}
       >
         <canvas
@@ -488,6 +490,6 @@ export function Liveline({
           style={{ display: 'block', cursor: cursorStyle }}
         />
       </div>
-    </>
+    </div>
   )
 }
