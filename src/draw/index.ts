@@ -38,6 +38,7 @@ export interface DrawOptions {
   showPulse: boolean
   showFill: boolean
   referenceLine?: ReferenceLine
+  referenceLines?: ReferenceLine[]
   hoverX: number | null
   hoverValue: number | null
   hoverTime: number | null
@@ -103,6 +104,12 @@ export function drawFrame(
     ctx.save()
     if (reveal < 1) ctx.globalAlpha = reveal
     drawReferenceLine(ctx, layout, palette, opts.referenceLine)
+    ctx.restore()
+  }
+  if (opts.referenceLines && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    for (const rl of opts.referenceLines) drawReferenceLine(ctx, layout, palette, rl)
     ctx.restore()
   }
 
@@ -250,6 +257,7 @@ export interface MultiSeriesDrawOptions {
   showGrid: boolean
   showPulse: boolean
   referenceLine?: ReferenceLine
+  referenceLines?: ReferenceLine[]
   hoverX: number | null
   hoverTime: number | null
   hoverEntries: MultiSeriesHoverEntry[]
@@ -295,6 +303,12 @@ export function drawMultiFrame(
     ctx.save()
     if (reveal < 1) ctx.globalAlpha = reveal
     drawReferenceLine(ctx, layout, palette, opts.referenceLine)
+    ctx.restore()
+  }
+  if (opts.referenceLines && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    for (const rl of opts.referenceLines) drawReferenceLine(ctx, layout, palette, rl)
     ctx.restore()
   }
 
@@ -466,6 +480,7 @@ export interface CandleDrawOptions {
   momentum: Momentum
   arrowState: { up: number; down: number }
   referenceLine?: ReferenceLine
+  referenceLines?: ReferenceLine[]
   overlays?: Array<{ visible: LivelinePoint[]; palette: LivelinePalette; smoothValue: number }>
   orderbookData?: OrderbookData
   orderbookState?: OrderbookState
@@ -532,6 +547,12 @@ export function drawCandleFrame(
     ctx.save()
     if (reveal < 1) ctx.globalAlpha = reveal
     drawReferenceLine(ctx, layout, palette, opts.referenceLine)
+    ctx.restore()
+  }
+  if (opts.referenceLines && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    for (const rl of opts.referenceLines) drawReferenceLine(ctx, layout, palette, rl)
     ctx.restore()
   }
 

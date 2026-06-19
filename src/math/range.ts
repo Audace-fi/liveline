@@ -9,6 +9,7 @@ export function computeRange(
   currentValue: number,
   referenceValue?: number,
   exaggerate?: boolean,
+  extraValues?: number[],
 ): { min: number; max: number } {
   let targetMin = Infinity
   let targetMax = -Infinity
@@ -25,6 +26,15 @@ export function computeRange(
   if (referenceValue !== undefined) {
     if (referenceValue < targetMin) targetMin = referenceValue
     if (referenceValue > targetMax) targetMax = referenceValue
+  }
+
+  // Include extra reference lines (e.g. position entry, open orders) so they stay on-screen
+  if (extraValues) {
+    for (const v of extraValues) {
+      if (!Number.isFinite(v)) continue
+      if (v < targetMin) targetMin = v
+      if (v > targetMax) targetMax = v
+    }
   }
 
   const rawRange = targetMax - targetMin

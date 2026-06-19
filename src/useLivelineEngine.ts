@@ -26,6 +26,7 @@ interface EngineConfig {
   momentumOverride?: Momentum
   showFill: boolean
   referenceLine?: ReferenceLine
+  referenceLines?: ReferenceLine[]
   formatValue: (v: number) => string
   formatTime: (t: number) => string
   padding: Required<Padding>
@@ -171,7 +172,7 @@ function updateWindowTransition(
       }
     }
     if (targetVisible.length > 0) {
-      const targetRange = computeRange(targetVisible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate)
+      const targetRange = computeRange(targetVisible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate, cfg.referenceLines?.map((r) => r.value))
       wt.rangeToMin = targetRange.min
       wt.rangeToMax = targetRange.max
     }
@@ -1515,6 +1516,7 @@ export function useLivelineEngine(
         momentum: candleMomentum,
         arrowState: arrowStateRef.current,
         referenceLine: cfg.referenceLine,
+        referenceLines: cfg.referenceLines,
         overlays: visibleOverlays,
         orderbookData: cfg.orderbookData,
         orderbookState: cfg.orderbookData ? orderbookStateRef.current : undefined,
@@ -1671,7 +1673,7 @@ export function useLivelineEngine(
           if (p.time >= targetLeftEdge - 2 && p.time <= targetRightEdge) targetVisible.push(p)
         }
         if (targetVisible.length > 0) {
-          const range = computeRange(targetVisible, sv, cfg.referenceLine?.value, cfg.exaggerate)
+          const range = computeRange(targetVisible, sv, cfg.referenceLine?.value, cfg.exaggerate, cfg.referenceLines?.map((r) => r.value))
           if (range.min < unionMin) unionMin = range.min
           if (range.max > unionMax) unionMax = range.max
         }
@@ -1709,7 +1711,7 @@ export function useLivelineEngine(
       if (visible.length >= 2) {
         // Only include in range if series is at least partially visible
         if (alpha > 0.01) {
-          const range = computeRange(visible, sv, cfg.referenceLine?.value, cfg.exaggerate)
+          const range = computeRange(visible, sv, cfg.referenceLine?.value, cfg.exaggerate, cfg.referenceLines?.map((r) => r.value))
           if (range.min < globalMin) globalMin = range.min
           if (range.max > globalMax) globalMax = range.max
         }
@@ -1818,6 +1820,7 @@ export function useLivelineEngine(
       showGrid: cfg.showGrid,
       showPulse: cfg.showPulse,
       referenceLine: cfg.referenceLine,
+      referenceLines: cfg.referenceLines,
       hoverX: drawHoverX,
       hoverTime: drawHoverTime,
       hoverEntries,
@@ -1945,7 +1948,7 @@ export function useLivelineEngine(
     }
 
     // Compute + smooth Y range
-    const computedRange = computeRange(visible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate)
+    const computedRange = computeRange(visible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate, cfg.referenceLines?.map((r) => r.value))
     const isWindowTransitioning = transition.startMs > 0
     const rangeResult = updateRange(
       computedRange, rangeInitedRef.current,
@@ -2002,6 +2005,7 @@ export function useLivelineEngine(
       showPulse: cfg.showPulse,
       showFill: cfg.showFill,
       referenceLine: cfg.referenceLine,
+      referenceLines: cfg.referenceLines,
       hoverX: drawHoverX,
       hoverValue: drawHoverValue,
       hoverTime: drawHoverTime,

@@ -13,6 +13,8 @@ export type BadgeVariant = 'default' | 'minimal'
 export interface ReferenceLine {
   value: number
   label?: string
+  color?: string             // stroke + label color (default: palette.refLine / refLabel)
+  align?: 'center' | 'left'  // label placement (default 'center'); 'left' draws a filled tag at the left edge
 }
 
 export interface HoverPoint {
@@ -101,6 +103,7 @@ export interface LivelineProps {
 
   // Optional
   referenceLine?: ReferenceLine
+  referenceLines?: ReferenceLine[]  // extra horizontal lines (e.g. position entry, open orders)
   formatValue?: (v: number) => string
   formatTime?: (t: number) => string
   lerpSpeed?: number
