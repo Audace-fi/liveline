@@ -46,6 +46,7 @@ interface EngineConfig {
   paused?: boolean
   emptyText?: string
   panZoom?: boolean // enable scroll-wheel zoom + drag-pan (default off)
+  resetNonce?: number // bump to reset zoom + pan back to the default view
 
   // Candlestick mode
   mode: 'line' | 'candle'
@@ -761,7 +762,12 @@ export function useLivelineEngine(
       if (!configRef.current.panZoom) return
       e.preventDefault() // we own the scroll gesture over the chart
       const factor = Math.exp(e.deltaY * ZOOM_WHEEL_SENS)
-      zoomRef.current = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomRef.current * factor))
+      // Cap zoom-out at the full loaded data span so we never over-scroll past the oldest point.
+      const earliest = configRef.current.data?.[0]?.time ?? configRef.current.candles?.[0]?.time
+      const base = displayWindowRef.current
+      const now = Date.now() / 1000 - timeDebtRef.current
+      const maxOut = earliest != null && base > 0 ? Math.max(MAX_ZOOM, (now - earliest) / base) : MAX_ZOOM
+      zoomRef.current = Math.max(MIN_ZOOM, Math.min(maxOut, zoomRef.current * factor))
     }
 
     // Drag-to-pan (opt-in). The right edge is anchored to an absolute time while
@@ -830,6 +836,12 @@ export function useLivelineEngine(
       document.body.style.userSelect = ''
     }
   }, [containerRef])
+
+  // External reset: bumping `resetNonce` snaps back to the default view (base zoom, live edge).
+  useEffect(() => {
+    zoomRef.current = 1
+    panAnchorRef.current = null
+  }, [config.resetNonce])
 
   // Infer candle spacing (seconds) from the data when `candleWidth` isn't given.
   // Median of consecutive deltas — robust to gaps (weekends, missing bars).

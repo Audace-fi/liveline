@@ -111,6 +111,7 @@ export interface LivelineProps {
   onHover?: (point: HoverPoint | null) => void
   cursor?: string          // CSS cursor on hover (default: 'crosshair')
   panZoom?: boolean        // Scroll-wheel zoom + drag-pan (default: false)
+  resetNonce?: number      // bump this to reset zoom + pan to the default view
   pulse?: boolean          // Pulsing ring on live dot (default: true)
   lineWidth?: number       // Stroke width of the main line in px (default: 2)
 
